@@ -23,10 +23,13 @@ pnpm dev
 
 ```sh
 pnpm exec cf auth login
-pnpm exec cf deploy --secrets-file .dev.vars
+printf 'API_KEY=change-me\n' > .secrets
+pnpm exec cf deploy --secrets-file .secrets
 ```
 
-This builds the app and creates the Worker, a KV namespace and the `Counter` and `Room` Durable Objects on your account. `--secrets-file` uploads `API_KEY`, the only key in `.dev.vars` that `cloudflare.config.ts` declares.
+This builds the app and creates the Worker, a KV namespace and the `Counter` and `Room` Durable Objects on your account. `--secrets-file` uploads every key in the file, so don't pass `.dev.vars`: its `NOT_DECLARED` key is there to show that undeclared keys don't reach the Worker during dev. If your login has more than one account, set `CLOUDFLARE_ACCOUNT_ID` to pick one.
+
+Once deployed, a full page load of `/remote` returns 500 because of https://github.com/sveltejs/kit/issues/15035. Navigating to it from another page works.
 
 ## What to look at
 
