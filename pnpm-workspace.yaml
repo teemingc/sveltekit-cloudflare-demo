@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: true
+  rolldown: true
+  workerd: true
+peerDependencyRules:
+  allowedVersions:
+    '@sveltejs/kit': '3'

@@ -1,0 +1,4 @@
+# copy to .dev.vars for vite dev
+API_KEY=dev-secret
+# not declared in cloudflare.config.ts, so it never reaches the Worker
+NOT_DECLARED=leak

@@ -1,0 +1,17 @@
+{
+	"name": "demo-styled-lib",
+	"version": "1.0.0",
+	"type": "module",
+	"svelte": "./src/index.js",
+	"exports": {
+		".": {
+			"types": "./src/index.d.ts",
+			"svelte": "./src/index.js",
+			"default": "./src/index.js"
+		}
+	},
+	"peerDependencies": {
+		"svelte": "^5.0.0"
+	},
+	"types": "./src/index.d.ts"
+}
