@@ -20,7 +20,7 @@ The tests against `vite preview` did not run, because the build failed:
 error during build:
 Error: Cannot access cloudflare:workers in a prerenderable route
     at Object.unavailable (node_modules/@sveltejs/adapter-cloudflare/src/virtual-cloudflare-workers.js:8:8)
-    at file://.svelte-kit/output/server/entries/pages/top-level/_page.server.ts.js:3:20
+    at .svelte-kit/output/server/entries/pages/top-level/_page.server.ts.js:3:20
     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
     at async Promise.all (index 11)
