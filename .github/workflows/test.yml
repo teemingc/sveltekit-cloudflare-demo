@@ -69,48 +69,71 @@ jobs:
         run: echo "run=${{ inputs.force == true || steps.tested.outputs.cache-hit != 'true' }}" >> "$GITHUB_OUTPUT"
 
       - name: Install
+        id: install
         if: steps.decide.outputs.run == 'true'
         run: |
           pnpm install ${{ steps.update.outputs.changed == 'true' && '--no-frozen-lockfile' || '--frozen-lockfile' }}
           pnpm exec playwright install --with-deps chromium
           cp .dev.vars.example .dev.vars
 
-      - name: Test
-        id: test
-        if: steps.decide.outputs.run == 'true'
-        continue-on-error: true
-        run: pnpm test
+      # one step per stage, so the step marked as failed shows which stage failed. Each runs
+      # whether or not the ones before it failed, so the results cover all of them
+      - name: Test against vite dev
+        if: steps.install.outcome == 'success'
+        run: node scripts/test.js dev
+
+      - name: Build
+        id: build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: node scripts/test.js build
+
+      - name: Test against vite preview
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node scripts/test.js preview
 
       - name: Summarise
-        if: steps.decide.outputs.run == 'true'
-        run: cat RESULTS.md >> "$GITHUB_STEP_SUMMARY"
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          node scripts/test.js report
+          cat RESULTS.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarise a skipped run
+        if: steps.decide.outputs.run != 'true'
+        run: echo 'These files were already tested, so the tests did not run. Run the workflow by hand with `force` ticked to test them again.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the results
-        if: steps.decide.outputs.run == 'true'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: results
           path: .test-report/results.json
           include-hidden-files: true
 
+      # open it with `pnpm exec playwright show-report <folder>`, which shows the trace of each
+      # failed test
+      - name: Upload the Playwright reports
+        if: ${{ failure() && steps.install.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: .test-report/html-*/
+          include-hidden-files: true
+          if-no-files-found: ignore
+
       # after the install, which changes the lockfile when the pull request changed
       - name: Identify the files that were tested
         id: after
-        if: steps.decide.outputs.run == 'true'
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           scripts/key.sh >> "$GITHUB_OUTPUT"
           touch .tested
 
       - name: Record that these files were tested
-        if: steps.decide.outputs.run == 'true' && steps.after.outputs.key != steps.tested.outputs.cache-matched-key
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && steps.after.outputs.key != steps.tested.outputs.cache-matched-key }}
         uses: actions/cache/save@v6
         with:
           path: .tested
           key: ${{ steps.after.outputs.key }}
-
-      - name: Fail if a test failed
-        if: steps.test.outcome == 'failure'
-        run: exit 1
 
   # commits the update and the results. It never runs the packages' code, and treats what the
   # test job hands it as untrusted

@@ -70,6 +70,8 @@ This runs `tests/demo.test.ts` against `vite dev`, builds the app, runs the test
 
 To run the tests against one of them, use `MODE=dev pnpm exec playwright test` or `pnpm build && MODE=preview pnpm exec playwright test`.
 
+`RESULTS.md` starts with what failed, then the error of each failed test and of the build. In the `Test` workflow, each of `vite dev`, `vite build` and `vite preview` is its own step, so the step marked as failed is the stage that failed, failed tests appear as annotations on the run, and the run's summary shows `RESULTS.md`. When something fails, the run uploads the Playwright reports, with a trace of each failed test, as the `playwright-report` artifact. Open one with `pnpm exec playwright show-report <folder>`.
+
 ## Updating SvelteKit
 
 `pnpm update-kit` pins `package.json` to the latest commit of the pull request, once pkg.svelte.dev has built it. Then run `pnpm install`.

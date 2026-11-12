@@ -9,8 +9,17 @@ export default defineConfig({
 	// the tests share counters, cookies and module state on the one server
 	workers: 1,
 	forbidOnly: !!process.env.CI,
-	reporter: [['list'], ['json', { outputFile: `.test-report/${mode}.json` }]],
-	use: { baseURL: `http://localhost:${port}` },
+	// names the mode in the output, and in the annotations on GitHub
+	projects: [{ name: mode }],
+	reporter: [
+		['list'],
+		['json', { outputFile: `.test-report/${mode}.json` }],
+		// keeps the trace of each failed test, which the workflow uploads
+		['html', { outputFolder: `.test-report/html-${mode}`, open: 'never' }],
+		...(process.env.GITHUB_ACTIONS ? [['github'] as const] : [])
+	],
+	outputDir: `test-results/${mode}`,
+	use: { baseURL: `http://localhost:${port}`, trace: 'retain-on-failure' },
 	webServer: {
 		command: `pnpm ${mode} --port ${port} --strictPort`,
 		port,

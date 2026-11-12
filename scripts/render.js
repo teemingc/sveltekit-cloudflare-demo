@@ -2,18 +2,21 @@
 //
 // The workflow runs `node scripts/render.js <results.json>` in its commit job, which can write to
 // the repository. The results come from the job that ran the packages' code, so nothing in them is
-// trusted: only known statuses and plain test titles reach the Markdown, and the build error
-// stays inside a code block that it cannot close
+// trusted: only known statuses and plain test titles reach the Markdown, and the errors stay
+// inside code blocks that they cannot close
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { pinned_sha, pull_request } from './packages.js';
 
 /** @typedef {'passed' | 'failed' | 'skipped' | 'not run'} Status */
 
+/** @typedef {{ title: string, mode: 'dev' | 'preview', error: string }} Failure */
+
 /**
  * @typedef {{
  *   steps: { dev: Status, build: Status, preview: Status },
  *   tests: Array<{ title: string, dev: Status, preview: Status }>,
+ *   failures: Failure[],
  *   build_error: string | null
  * }} Results
  */
@@ -37,9 +40,15 @@ function plain(title) {
 	return title;
 }
 
+/** @param {unknown} mode */
+function server(mode) {
+	if (mode !== 'dev' && mode !== 'preview') throw new Error(`Not a mode: ${mode}`);
+	return `\`vite ${mode}\``;
+}
+
 /** @param {unknown} error */
 function code(error) {
-	if (typeof error !== 'string') throw new Error('The build error is not a string');
+	if (typeof error !== 'string') throw new Error('The error is not a string');
 
 	return (
 		error
@@ -52,7 +61,7 @@ function code(error) {
 			.replaceAll(/[^\x20-\x7e\n]|[`~]/g, '')
 			.trim()
 			.split('\n')
-			.slice(0, 12)
+			.slice(0, 15)
 			.map((line) => line.slice(0, 400))
 	);
 }
@@ -66,7 +75,14 @@ export function render(results) {
 		throw new Error('Expected a list of at most 200 tests');
 	}
 
+	const failures = results.failures ?? [];
+	if (!Array.isArray(failures) || failures.length > 50) {
+		throw new Error('Expected a list of at most 50 failures');
+	}
+
 	const sha = pinned_sha();
+	const steps = /** @type {const} */ (['dev', 'build', 'preview']);
+	const failed_steps = steps.filter((step) => results.steps?.[step] !== 'passed');
 
 	const lines = [
 		'# Test results',
@@ -75,17 +91,20 @@ export function render(results) {
 		'',
 		'`pnpm test` writes this file.',
 		'',
+		failed_steps.length === 0 && failures.length === 0
+			? '**✅ Everything passed.**'
+			: `**❌ ${[
+					failures.length > 0 && `${failures.length} ${failures.length === 1 ? 'test' : 'tests'} failed`,
+					...failed_steps.map((step) => `\`vite ${step}\` ${results.steps[step] === 'not run' ? 'did not run' : 'failed'}`)
+				]
+					.filter(Boolean)
+					.join(', ')}.**`,
+		'',
 		'| Step | Result |',
 		'| --- | --- |',
 		`| \`vite dev\` starts | ${cell(results.steps?.dev)} |`,
 		`| \`vite build\` | ${cell(results.steps?.build)} |`,
-		`| \`vite preview\` starts | ${cell(results.steps?.preview)} |`,
-		'',
-		'| Test | `vite dev` | `vite preview` |',
-		'| --- | --- | --- |',
-		...results.tests.map(
-			(test) => `| ${plain(test?.title)} | ${cell(test?.dev)} | ${cell(test?.preview)} |`
-		)
+		`| \`vite preview\` starts | ${cell(results.steps?.preview)} |`
 	];
 
 	if (results.build_error != null) {
@@ -100,6 +119,31 @@ export function render(results) {
 			'```'
 		);
 	}
+
+	if (failures.length > 0) {
+		lines.push('', '## Failures');
+		for (const failure of failures) {
+			lines.push(
+				'',
+				`### ${plain(failure?.title)} (${server(failure?.mode)})`,
+				'',
+				'```',
+				...code(failure?.error),
+				'```'
+			);
+		}
+	}
+
+	lines.push(
+		'',
+		'## All tests',
+		'',
+		'| Test | `vite dev` | `vite preview` |',
+		'| --- | --- | --- |',
+		...results.tests.map(
+			(test) => `| ${plain(test?.title)} | ${cell(test?.dev)} | ${cell(test?.preview)} |`
+		)
+	);
 
 	return lines.join('\n') + '\n';
 }
