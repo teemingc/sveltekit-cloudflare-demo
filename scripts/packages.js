@@ -23,6 +23,9 @@ export function pinned_sha() {
 
 /** @param {string} sha */
 export function pin(sha) {
+	// the workflow passes this from a job that ran the packages' code, so it is not trusted
+	if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`Not a commit: ${sha}`);
+
 	let contents = fs.readFileSync(package_json, 'utf8');
 	const from = pinned_sha();
 	for (const name of packages) {

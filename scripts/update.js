@@ -1,7 +1,13 @@
 // Pins package.json to the latest commit of the pull request, once pkg.svelte.dev has built it.
-// Prints `changed=true` or `changed=false`, which the workflow reads as a step output
+// Prints `changed=true` or `changed=false` and the pinned `sha`, which the workflow reads as step
+// outputs. `node scripts/update.js <sha>` pins that commit instead
 import { execFileSync } from 'node:child_process';
 import { package_url, packages, pin, pinned_sha, pull_request } from './packages.js';
+
+if (process.argv[2]) {
+	pin(process.argv[2]);
+	process.exit();
+}
 
 const ref = `refs/pull/${pull_request}/head`;
 const [head] = execFileSync('git', ['ls-remote', 'https://github.com/sveltejs/kit', ref], {
@@ -31,3 +37,4 @@ if (head === current) {
 }
 
 console.log(`changed=${changed}`);
+console.log(`sha=${pinned_sha()}`);
