@@ -3,8 +3,15 @@ name: Test
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md']
   pull_request:
+    paths-ignore: ['**.md']
   workflow_dispatch:
+    inputs:
+      force:
+        description: Test even if nothing changed
+        type: boolean
+        default: false
   schedule:
     # looks for new commits on the SvelteKit pull request
     - cron: '23 * * * *'
@@ -39,13 +46,26 @@ jobs:
 
       - name: Update to the latest commit of the SvelteKit pull request
         id: update
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'pull_request'
         run: node scripts/update.js >> "$GITHUB_OUTPUT"
 
-      # a scheduled run has nothing new to test unless the pull request changed
+      # the tests only run if this repository or the pull request changed since they last ran.
+      # A cache entry named after the files records that they were tested
+      - name: Identify the files to test
+        id: before
+        run: scripts/key.sh >> "$GITHUB_OUTPUT"
+
+      - name: Look for an earlier run with the same files
+        id: tested
+        uses: actions/cache/restore@v6
+        with:
+          path: .tested
+          key: ${{ steps.before.outputs.key }}
+          lookup-only: true
+
       - name: Decide whether to test
         id: decide
-        run: echo "run=${{ github.event_name != 'schedule' || steps.update.outputs.changed == 'true' }}" >> "$GITHUB_OUTPUT"
+        run: echo "run=${{ inputs.force == true || steps.tested.outputs.cache-hit != 'true' }}" >> "$GITHUB_OUTPUT"
 
       - name: Install
         if: steps.decide.outputs.run == 'true'
@@ -69,7 +89,23 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: results
-          path: RESULTS.md
+          path: .test-report/results.json
+          include-hidden-files: true
+
+      # after the install, which changes the lockfile when the pull request changed
+      - name: Identify the files that were tested
+        id: after
+        if: steps.decide.outputs.run == 'true'
+        run: |
+          scripts/key.sh >> "$GITHUB_OUTPUT"
+          touch .tested
+
+      - name: Record that these files were tested
+        if: steps.decide.outputs.run == 'true' && steps.after.outputs.key != steps.tested.outputs.cache-matched-key
+        uses: actions/cache/save@v6
+        with:
+          path: .tested
+          key: ${{ steps.after.outputs.key }}
 
       - name: Fail if a test failed
         if: steps.test.outcome == 'failure'
@@ -80,7 +116,7 @@ jobs:
   commit:
     needs: test
     # runs whether or not the tests passed
-    if: always() && needs.test.outputs.run == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: always() && needs.test.outputs.run == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -107,13 +143,16 @@ jobs:
           name: results
           path: ${{ runner.temp }}/results
 
-      - name: Commit
+      # scripts/render.js only lets statuses, plain test titles and a code block through
+      - name: Render the results
         env:
-          RESULTS: ${{ runner.temp }}/results/RESULTS.md
+          RESULTS: ${{ runner.temp }}/results/results.json
         run: |
-          # RESULTS.md is only ever a small text file
           test -f "$RESULTS" && test ! -L "$RESULTS" && test "$(wc -c < "$RESULTS")" -lt 100000
-          cp "$RESULTS" RESULTS.md
+          node scripts/render.js "$RESULTS"
+
+      - name: Commit
+        run: |
           git add package.json pnpm-lock.yaml RESULTS.md
           if git diff --cached --quiet; then exit 0; fi
           git config user.name 'github-actions[bot]'

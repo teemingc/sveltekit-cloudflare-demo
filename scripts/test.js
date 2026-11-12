@@ -2,12 +2,12 @@
 // RESULTS.md. Each step runs even if an earlier one failed, so that the results cover all of them
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import { pinned_sha, pull_request } from './packages.js';
+import { render } from './render.js';
 
 const root = new URL('..', import.meta.url);
 const report_dir = new URL('.test-report/', root);
 
-/** @typedef {'passed' | 'failed' | 'skipped' | 'not run'} Status */
+/** @typedef {import('./render.js').Status} Status */
 
 /**
  * @param {'dev' | 'preview'} mode
@@ -65,61 +65,30 @@ if (built) {
 	preview = run_tests('preview');
 }
 
-const icons = { passed: '✅', failed: '❌', skipped: '➖', 'not run': '⚪' };
-
-/** @param {Status} status */
-const cell = (status) => `${icons[status]} ${status}`;
-
-const sha = pinned_sha();
 const titles = new Set([...(dev?.keys() ?? []), ...(preview?.keys() ?? [])]);
 
-const lines = [
-	'# Test results',
-	'',
-	`SvelteKit and \`@sveltejs/adapter-cloudflare\` built from [\`${sha.slice(0, 9)}\`](https://github.com/sveltejs/kit/commit/${sha}), the tip of https://github.com/sveltejs/kit/pull/${pull_request} when this ran.`,
-	'',
-	'`pnpm test` writes this file.',
-	'',
-	'| Step | Result |',
-	'| --- | --- |',
-	`| \`vite dev\` starts | ${cell(dev ? 'passed' : 'failed')} |`,
-	`| \`vite build\` | ${cell(built ? 'passed' : 'failed')} |`,
-	`| \`vite preview\` starts | ${cell(preview ? 'passed' : built ? 'failed' : 'not run')} |`,
-	'',
-	'| Test | `vite dev` | `vite preview` |',
-	'| --- | --- | --- |',
-	...Array.from(
-		titles,
-		(title) =>
-			`| ${title} | ${cell(dev?.get(title) ?? 'not run')} | ${cell(preview?.get(title) ?? 'not run')} |`
-	)
-];
+/** @type {import('./render.js').Results} */
+const results = {
+	steps: {
+		dev: dev ? 'passed' : 'failed',
+		build: built ? 'passed' : 'failed',
+		preview: preview ? 'passed' : built ? 'failed' : 'not run'
+	},
+	tests: Array.from(titles, (title) => ({
+		title,
+		dev: dev?.get(title) ?? 'not run',
+		preview: preview?.get(title) ?? 'not run'
+	})),
+	// the errors come last in the output
+	build_error: built ? null : build_output.slice(build_output.indexOf('error during build'))
+};
 
-if (!built) {
-	// the paths in the output differ between machines, and the errors come last
-	const error = build_output
-		.slice(build_output.indexOf('error during build'))
-		.replaceAll(/\x1b\[[0-9;]*m/g, '')
-		.replaceAll(/(file:\/\/)?\/\S*\/node_modules\//g, 'node_modules/')
-		.replaceAll(/\?[0-9a-f-]{36}/g, '')
-		.replaceAll(new URL('.', root).pathname, '')
-		.trim();
+// the workflow's commit job renders RESULTS.md from this file
+fs.mkdirSync(report_dir, { recursive: true });
+fs.writeFileSync(new URL('results.json', report_dir), JSON.stringify(results, null, '\t'));
+fs.writeFileSync(new URL('RESULTS.md', root), render(results));
 
-	lines.push(
-		'',
-		'## Build error',
-		'',
-		'The tests against `vite preview` did not run, because the build failed:',
-		'',
-		'```',
-		...error.split('\n').slice(0, 12),
-		'```'
-	);
-}
-
-fs.writeFileSync(new URL('RESULTS.md', root), lines.join('\n') + '\n');
-
-const statuses = [...(dev?.values() ?? []), ...(preview?.values() ?? [])];
+const statuses = results.tests.flatMap((test) => [test.dev, test.preview]);
 const ok = dev && built && preview && !statuses.includes('failed');
 console.log(`\nWrote RESULTS.md: ${ok ? 'everything passed' : 'there are failures'}`);
 process.exit(ok ? 0 : 1);

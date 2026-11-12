@@ -74,4 +74,6 @@ To run the tests against one of them, use `MODE=dev pnpm exec playwright test` o
 
 `pnpm update-kit` pins `package.json` to the latest commit of the pull request, once pkg.svelte.dev has built it. Then run `pnpm install`.
 
-The `Test` workflow does this every hour. When the pull request has a new commit, it runs the tests and commits the update along with the new `RESULTS.md`. To follow a different pull request, change `pull_request` in `scripts/packages.js`.
+The `Test` workflow does this every hour, and on every push. It only runs the tests if the pull request or this repository changed since the tests last ran, then commits the update along with the new `RESULTS.md`. To run the tests regardless, run the workflow by hand with `force` ticked. To follow a different pull request, change `pull_request` in `scripts/packages.js`.
+
+The job that runs the tests can't write to this repository, because it runs code from a pull request that nobody reviewed for it. A second job commits the results, which `scripts/render.js` checks before writing them into `RESULTS.md`.
