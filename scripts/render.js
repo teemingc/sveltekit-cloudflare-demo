@@ -46,17 +46,27 @@ function server(mode) {
 	return `\`vite ${mode}\``;
 }
 
+const root = new URL('..', import.meta.url);
+
+/**
+ * Removes colours, and the parts of paths that differ between machines
+ * @param {string} error
+ */
+export function tidy(error) {
+	return error
+		.replaceAll(/\x1b\[[0-9;]*m/g, '')
+		.replaceAll(/(file:\/\/)?\/\S*\/node_modules\//g, 'node_modules/')
+		.replaceAll(/\?[0-9a-f-]{36}/g, '')
+		.replaceAll(root.href, '')
+		.replaceAll(fileURLToPath(root), '');
+}
+
 /** @param {unknown} error */
 function code(error) {
 	if (typeof error !== 'string') throw new Error('The error is not a string');
 
 	return (
-		error
-			.replaceAll(/\x1b\[[0-9;]*m/g, '')
-			// the paths differ between machines
-			.replaceAll(/(file:\/\/)?\/\S*\/node_modules\//g, 'node_modules/')
-			.replaceAll(/\?[0-9a-f-]{36}/g, '')
-			.replaceAll(fileURLToPath(new URL('..', import.meta.url)), '')
+		tidy(error)
 			// a run of backticks or tildes would end the code block
 			.replaceAll(/[^\x20-\x7e\n]|[`~]/g, '')
 			.trim()

@@ -10,7 +10,7 @@
 //   node scripts/test.js report    writes RESULTS.md from what the steps left in .test-report
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import { render } from './render.js';
+import { render, tidy } from './render.js';
 
 const root = new URL('..', import.meta.url);
 const report_dir = new URL('.test-report/', root);
@@ -47,16 +47,25 @@ async function build() {
 	child.stderr.on('data', (chunk) => (process.stderr.write(chunk), (output += chunk)));
 	const code = await new Promise((fulfil) => child.on('close', fulfil));
 	const ok = code === 0;
+	// the errors come last in the output
+	const error = ok ? null : output.slice(Math.max(0, output.indexOf('error during build')));
 
 	fs.mkdirSync(report_dir, { recursive: true });
-	fs.writeFileSync(
-		file,
-		JSON.stringify({
-			ok,
-			// the errors come last in the output
-			error: ok ? null : output.slice(Math.max(0, output.indexOf('error during build')))
-		})
-	);
+	fs.writeFileSync(file, JSON.stringify({ ok, error }));
+
+	if (error !== null && process.env.GITHUB_ACTIONS) {
+		// an annotation on the run, like the ones for failed tests. Its message is one line, so
+		// the line breaks are escaped
+		const message = tidy(error)
+			.trim()
+			.split('\n')
+			.slice(0, 15)
+			.join('\n')
+			.replaceAll('%', '%25')
+			.replaceAll('\r', '%0D')
+			.replaceAll('\n', '%0A');
+		console.log(`::error title=vite build failed::${message}`);
+	}
 
 	return ok;
 }
