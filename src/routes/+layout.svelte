@@ -16,6 +16,7 @@
 	<a href="/chat">websocket chat</a>
 	<a href="/actions">form actions</a>
 	<a href="/about">prerendered</a>
+	<a href="/top-level">top-level access</a>
 	<a href="/lib">library css</a>
 	<a href="/internal">internal fetch</a>
 	<a href="/boom">expected error</a>

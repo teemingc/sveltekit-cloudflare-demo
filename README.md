@@ -42,7 +42,8 @@ Once deployed, a full page load of `/remote` returns 500 because of https://gith
 | `/lib` | CSS from a component library, inlined during dev |
 | `/read` | `read` from `$app/server` |
 | `/kv`, `POST /counter` | a KV binding and Durable Object RPC |
-| `/about` | a prerendered page |
+| `/about` | a prerendered page with a server `load`, which shows the runtime that rendered it and when |
+| `/top-level` | `cloudflare:workers` used at the top level of a server module |
 | `/actions` | a form action that redirects |
 | `/internal` | `fetch` to an endpoint from a universal `load` |
 | `/stats` | module state shared by `src/worker.ts` and SvelteKit |
