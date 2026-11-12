@@ -1,0 +1,72 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # looks for new commits on the SvelteKit pull request
+    - cron: '23 * * * *'
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Update to the latest commit of the SvelteKit pull request
+        id: update
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: node scripts/update.js >> "$GITHUB_OUTPUT"
+
+      # a scheduled run has nothing new to test unless the pull request changed
+      - name: Decide whether to test
+        id: decide
+        run: echo "run=${{ github.event_name != 'schedule' || steps.update.outputs.changed == 'true' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Install
+        if: steps.decide.outputs.run == 'true'
+        run: |
+          pnpm install ${{ steps.update.outputs.changed == 'true' && '--no-frozen-lockfile' || '--frozen-lockfile' }}
+          pnpm exec playwright install --with-deps chromium
+          cp .dev.vars.example .dev.vars
+
+      - name: Test
+        id: test
+        if: steps.decide.outputs.run == 'true'
+        continue-on-error: true
+        run: pnpm test
+
+      - name: Summarise
+        if: steps.decide.outputs.run == 'true'
+        run: cat RESULTS.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit the update and the results
+        if: steps.decide.outputs.run == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        run: |
+          git add package.json pnpm-lock.yaml RESULTS.md
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "test sveltejs/kit@$(node -e "import('./scripts/packages.js').then((m) => console.log(m.pinned_sha().slice(0, 9)))")"
+          git push
+
+      - name: Fail if a test failed
+        if: steps.test.outcome == 'failure'
+        run: exit 1

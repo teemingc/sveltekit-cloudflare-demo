@@ -1,11 +1,11 @@
 # SvelteKit on Cloudflare demo
 
-A SvelteKit app that runs in Cloudflare's `workerd` runtime during `vite dev`, using SvelteKit and `@sveltejs/adapter-cloudflare` packed from the tips of these unreleased PRs:
+A SvelteKit app that runs in Cloudflare's `workerd` runtime during `vite dev`, using SvelteKit and `@sveltejs/adapter-cloudflare` built from these unreleased PRs:
 
 - https://github.com/sveltejs/kit/pull/17706 lets adapters render dev requests in their platform's runtime, then https://github.com/sveltejs/kit/pull/17712 (CSS), https://github.com/sveltejs/kit/pull/17709 (`read`), https://github.com/sveltejs/kit/pull/17710 (remote functions) and https://github.com/sveltejs/kit/pull/17711 (`adapter.supports`)
 - https://github.com/sveltejs/kit/pull/17707 runs dev in workerd and https://github.com/sveltejs/kit/pull/17708 adds the custom Worker entrypoint
 
-The tarballs in `vendor/` were packed from `claude/cloudflare-custom-worker-entrypoint` at `fdd9cb0a7`.
+`package.json` installs both packages from [pkg.svelte.dev](https://pkg.svelte.dev), pinned to a commit of https://github.com/sveltejs/kit/pull/17708, which is the tip of the stack. [RESULTS.md](./RESULTS.md) shows which tests pass with that commit.
 
 ## Run it
 
@@ -59,14 +59,19 @@ curl -X POST 'http://localhost:5173/cdn-cgi/local/explorer/api/local/scheduled?w
 
 `/stats` then shows `scheduled_runs: 1`.
 
-## Updating the tarballs
-
-From a sveltejs/kit checkout of the branch:
+## Test it
 
 ```sh
-pnpm -F @sveltejs/kit prepublishOnly
-(cd packages/kit && pnpm pack --pack-destination /path/to/this/repo/vendor)
-(cd packages/adapter-cloudflare && pnpm pack --pack-destination /path/to/this/repo/vendor)
+pnpm exec playwright install chromium
+pnpm test
 ```
 
-Then run `pnpm install` here.
+This runs `tests/demo.test.ts` against `vite dev`, builds the app, runs the tests again against `vite preview` and writes [RESULTS.md](./RESULTS.md). A failing build doesn't stop the `vite dev` results from being reported, but the tests against `vite preview` can't run without one.
+
+To run the tests against one of them, use `MODE=dev pnpm exec playwright test` or `pnpm build && MODE=preview pnpm exec playwright test`.
+
+## Updating SvelteKit
+
+`pnpm update-kit` pins `package.json` to the latest commit of the pull request, once pkg.svelte.dev has built it. Then run `pnpm install`.
+
+The `Test` workflow does this every hour. When the pull request has a new commit, it runs the tests and commits the update along with the new `RESULTS.md`. To follow a different pull request, change `pull_request` in `scripts/packages.js`.

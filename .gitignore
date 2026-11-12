@@ -24,3 +24,7 @@ vite.config.ts.timestamp-*
 .cloudflare
 .dev.vars
 .secrets
+
+# Tests
+/test-results
+/.test-report
