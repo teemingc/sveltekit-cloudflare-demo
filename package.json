@@ -20,8 +20,8 @@
 	"devDependencies": {
 		"@cloudflare/config": "0.31.0",
 		"@playwright/test": "1.63.0",
-		"@sveltejs/adapter-cloudflare": "https://pkg.svelte.dev/@sveltejs/adapter-cloudflare/c/fdd9cb0a73f53df2ef8f4a14cda23a574ebc5ff3",
-		"@sveltejs/kit": "https://pkg.svelte.dev/@sveltejs/kit/c/fdd9cb0a73f53df2ef8f4a14cda23a574ebc5ff3",
+		"@sveltejs/adapter-cloudflare": "https://pkg.svelte.dev/@sveltejs/adapter-cloudflare/c/c8c3d2df8787ade8268beaf8307ee60e6dae2c4f",
+		"@sveltejs/kit": "https://pkg.svelte.dev/@sveltejs/kit/c/c8c3d2df8787ade8268beaf8307ee60e6dae2c4f",
 		"@sveltejs/vite-plugin-svelte": "^7.2.0",
 		"cf": "1.0.0-beta.28",
 		"demo-styled-lib": "file:./vendor/styled-lib",
