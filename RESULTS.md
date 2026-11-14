@@ -1,6 +1,6 @@
 # Test results
 
-SvelteKit and `@sveltejs/adapter-cloudflare` built from [`ed501d9d4`](https://github.com/sveltejs/kit/commit/ed501d9d4f2526f8d0cf30f449dcbdf53912d755), the tip of https://github.com/sveltejs/kit/pull/17708 when this ran.
+SvelteKit and `@sveltejs/adapter-cloudflare` built from [`0ea84b909`](https://github.com/sveltejs/kit/commit/0ea84b909760c0cbb53e5cc3d043ee6ad6123e60), the tip of https://github.com/sveltejs/kit/pull/17708 when this ran.
 
 `pnpm test` writes this file.
 
